@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fglasgow-exts -fallow-undecidable-instances #-}
-
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.FingerTree
@@ -44,7 +42,8 @@ module Data.FingerTree (
 	split, takeUntil, dropUntil,
 	-- * Transformation
 	reverse,
-	fmap', traverse'
+	fmap', fmapWithPos, unsafeFmap,
+	traverse', traverseWithPos, unsafeTraverse
 	) where
 
 import Prelude hiding (null, reverse)
@@ -72,12 +71,16 @@ data ViewR s a
 	deriving (Eq, Ord, Show, Read)
 
 instance Functor s => Functor (ViewL s) where
-	fmap f EmptyL             = EmptyL
+	fmap f EmptyL           = EmptyL
 	fmap f (x :< xs)        = f x :< fmap f xs
 
 instance Functor s => Functor (ViewR s) where
-	fmap f EmptyR             = EmptyR
+	fmap f EmptyR           = EmptyR
 	fmap f (xs :> x)        = fmap f xs :> f x
+
+instance Measured v a => Monoid (FingerTree v a) where
+	mempty = empty
+	mappend = (><)
 
 -- Explicit Digit type (Exercise 1)
 
@@ -185,6 +188,54 @@ mapDigit f (Two a b) = Two (f a) (f b)
 mapDigit f (Three a b c) = Three (f a) (f b) (f c)
 mapDigit f (Four a b c d) = Four (f a) (f b) (f c) (f d)
 
+-- | Map all elements of the tree with a function that also takes the
+-- measure of the prefix of the tree to the left of the element.
+fmapWithPos :: (Measured v1 a1, Measured v2 a2) =>
+	(v1 -> a1 -> a2) -> FingerTree v1 a1 -> FingerTree v2 a2
+fmapWithPos f = mapWPTree f mempty
+
+mapWPTree :: (Measured v1 a1, Measured v2 a2) =>
+	(v1 -> a1 -> a2) -> v1 -> FingerTree v1 a1 -> FingerTree v2 a2
+mapWPTree _ _ Empty = Empty
+mapWPTree f v (Single x) = Single (f v x)
+mapWPTree f v (Deep _ pr m sf) =
+	deep (mapWPDigit f v pr)
+		(mapWPTree (mapWPNode f) vpr m)
+		(mapWPDigit f vm sf)
+  where	vpr	=  v    `mappend`  measure pr
+	vm	=  vpr  `mappendVal` m
+
+mapWPNode :: (Measured v1 a1, Measured v2 a2) =>
+	(v1 -> a1 -> a2) -> v1 -> Node v1 a1 -> Node v2 a2
+mapWPNode f v (Node2 _ a b) = node2 (f v a) (f va b)
+  where	va	= v `mappend` measure a
+mapWPNode f v (Node3 _ a b c) = node3 (f v a) (f va b) (f vab c)
+  where	va	= v `mappend` measure a
+	vab	= va `mappend` measure b
+
+mapWPDigit :: (Measured v a) => (v -> a -> b) -> v -> Digit a -> Digit b
+mapWPDigit f v (One a) = One (f v a)
+mapWPDigit f v (Two a b) = Two (f v a) (f va b)
+  where	va	= v `mappend` measure a
+mapWPDigit f v (Three a b c) = Three (f v a) (f va b) (f vab c)
+  where	va	= v `mappend` measure a
+	vab	= va `mappend` measure b
+mapWPDigit f v (Four a b c d) = Four (f v a) (f va b) (f vab c) (f vabc d)
+  where	va	= v `mappend` measure a
+	vab	= va `mappend` measure b
+        vabc	= vab `mappend` measure c
+
+-- | Like 'fmap', but safe only if the function preserves the measure.
+unsafeFmap :: (a -> b) -> FingerTree v a -> FingerTree v b
+unsafeFmap _ Empty = Empty
+unsafeFmap f (Single x) = Single (f x)
+unsafeFmap f (Deep v pr m sf) =
+	Deep v (mapDigit f pr) (unsafeFmap (unsafeFmapNode f) m) (mapDigit f sf)
+
+unsafeFmapNode :: (a -> b) -> Node v a -> Node v b
+unsafeFmapNode f (Node2 v a b) = Node2 v (f a) (f b)
+unsafeFmapNode f (Node3 v a b c) = Node3 v (f a) (f b) (f c)
+
 -- | Like 'traverse', but with a more constrained type.
 traverse' :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
 	(a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
@@ -208,6 +259,55 @@ traverseDigit f (Two a b) = Two <$> f a <*> f b
 traverseDigit f (Three a b c) = Three <$> f a <*> f b <*> f c
 traverseDigit f (Four a b c d) = Four <$> f a <*> f b <*> f c <*> f d
 
+-- | Traverse the tree with a function that also takes the
+-- measure of the prefix of the tree to the left of the element.
+traverseWithPos :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
+	(v1 -> a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
+traverseWithPos f = traverseWPTree f mempty
+
+traverseWPTree :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
+	(v1 -> a1 -> f a2) -> v1 -> FingerTree v1 a1 -> f (FingerTree v2 a2)
+traverseWPTree _ _ Empty = pure Empty
+traverseWPTree f v (Single x) = Single <$> f v x
+traverseWPTree f v (Deep _ pr m sf) =
+	deep <$> traverseWPDigit f v pr <*> traverseWPTree (traverseWPNode f) vpr m <*> traverseWPDigit f vm sf
+  where	vpr	=  v    `mappend`  measure pr
+	vm	=  vpr  `mappendVal` m
+
+traverseWPNode :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
+	(v1 -> a1 -> f a2) -> v1 -> Node v1 a1 -> f (Node v2 a2)
+traverseWPNode f v (Node2 _ a b) = node2 <$> f v a <*> f va b
+  where	va	= v `mappend` measure a
+traverseWPNode f v (Node3 _ a b c) = node3 <$> f v a <*> f va b <*> f vab c
+  where	va	= v `mappend` measure a
+	vab	= va `mappend` measure b
+
+traverseWPDigit :: (Measured v a, Applicative f) =>
+	(v -> a -> f b) -> v -> Digit a -> f (Digit b)
+traverseWPDigit f v (One a) = One <$> f v a
+traverseWPDigit f v (Two a b) = Two <$> f v a <*> f va b
+  where	va	= v `mappend` measure a
+traverseWPDigit f v (Three a b c) = Three <$> f v a <*> f va b <*> f vab c
+  where	va	= v `mappend` measure a
+	vab	= va `mappend` measure b
+traverseWPDigit f v (Four a b c d) = Four <$> f v a <*> f va b <*> f vab c <*> f vabc d
+  where	va	= v `mappend` measure a
+	vab	= va `mappend` measure b
+        vabc	= vab `mappend` measure c
+
+-- | Like 'traverse', but safe only if the function preserves the measure.
+unsafeTraverse :: (Applicative f) =>
+	(a -> f b) -> FingerTree v a -> f (FingerTree v b)
+unsafeTraverse _ Empty = pure Empty
+unsafeTraverse f (Single x) = Single <$> f x
+unsafeTraverse f (Deep v pr m sf) =
+	Deep v <$> traverseDigit f pr <*> unsafeTraverse (unsafeTraverseNode f) m <*> traverseDigit f sf
+
+unsafeTraverseNode :: (Applicative f) =>
+	(a -> f b) -> Node v a -> f (Node v b)
+unsafeTraverseNode f (Node2 v a b) = Node2 v <$> f a <*> f b
+unsafeTraverseNode f (Node3 v a b c) = Node3 v <$> f a <*> f b <*> f c
+
 -----------------------------------------------------
 -- 4.3 Construction, deconstruction and concatenation
 -----------------------------------------------------
@@ -229,9 +329,10 @@ fromList = foldr (<|) Empty
 (<|) :: (Measured v a) => a -> FingerTree v a -> FingerTree v a
 a <| Empty		=  Single a
 a <| Single b		=  deep (One a) Empty (One b)
-a <| Deep _ (Four b c d e) m sf = m `seq`
-	deep (Two a b) (node3 c d e <| m) sf
-a <| Deep _ pr m sf	=  deep (consDigit a pr) m sf
+a <| Deep v (Four b c d e) m sf = m `seq`
+	Deep (measure a `mappend` v) (Two a b) (node3 c d e <| m) sf
+a <| Deep v pr m sf	=
+	Deep (measure a `mappend` v) (consDigit a pr) m sf
 
 consDigit :: a -> Digit a -> Digit a
 consDigit a (One b) = Two a b
@@ -243,9 +344,10 @@ consDigit a (Three b c d) = Four a b c d
 (|>) :: (Measured v a) => FingerTree v a -> a -> FingerTree v a
 Empty |> a		=  Single a
 Single a |> b		=  deep (One a) Empty (One b)
-Deep _ pr m (Four a b c d) |> e = m `seq`
-	deep pr (m |> node3 a b c) (Two d e)
-Deep _ pr m sf |> x	=  deep pr m (snocDigit sf x)
+Deep v pr m (Four a b c d) |> e = m `seq`
+	Deep (v `mappend` measure e) pr (m |> node3 a b c) (Two d e)
+Deep v pr m sf |> x	=
+	Deep (v `mappend` measure x) pr m (snocDigit sf x)
 
 snocDigit :: Digit a -> a -> Digit a
 snocDigit (One a) b = Two a b
@@ -261,10 +363,13 @@ null _ = False
 viewl :: (Measured v a) => FingerTree v a -> ViewL (FingerTree v) a
 viewl Empty			=  EmptyL
 viewl (Single x)		=  x :< Empty
-viewl (Deep _ (One x) m sf)	=  x :< case viewl m of
-	EmptyL	->  digitToTree sf
-	a :< m' ->  deep (nodeToDigit a) m' sf
-viewl (Deep _ pr m sf)	=  lheadDigit pr :< deep (ltailDigit pr) m sf
+viewl (Deep _ (One x) m sf)	=  x :< rotL m sf
+viewl (Deep _ pr m sf)		=  lheadDigit pr :< deep (ltailDigit pr) m sf
+
+rotL :: (Measured v a) => FingerTree v (Node v a) -> Digit a -> FingerTree v a
+rotL m sf      =   case viewl m of
+	EmptyL  ->  digitToTree sf
+	a :< m' ->  Deep (measure m `mappend` measure sf) (nodeToDigit a) m' sf
 
 lheadDigit :: Digit a -> a
 lheadDigit (One a) = a
@@ -281,10 +386,13 @@ ltailDigit (Four _ b c d) = Three b c d
 viewr :: (Measured v a) => FingerTree v a -> ViewR (FingerTree v) a
 viewr Empty			=  EmptyR
 viewr (Single x)		=  Empty :> x
-viewr (Deep _ pr m (One x))	=  (case viewr m of
+viewr (Deep _ pr m (One x))	=  rotR pr m :> x
+viewr (Deep _ pr m sf)		=  deep pr m (rtailDigit sf) :> rheadDigit sf
+
+rotR :: (Measured v a) => Digit a -> FingerTree v (Node v a) -> FingerTree v a
+rotR pr m = case viewr m of
 	EmptyR	->  digitToTree pr
-	m' :> a ->  deep pr m' (nodeToDigit a)) :> x
-viewr (Deep _ pr m sf)	=  deep pr m (rtailDigit sf) :> rheadDigit sf
+	m' :> a ->  Deep (measure pr `mappendVal` m) pr m' (nodeToDigit a)
 
 rheadDigit :: Digit a -> a
 rheadDigit (One a) = a
@@ -584,16 +692,12 @@ mappendVal v t = v `mappend` measure t
 
 deepL          ::  (Measured v a) =>
 	Maybe (Digit a) -> FingerTree v (Node v a) -> Digit a -> FingerTree v a
-deepL Nothing m sf	=   case viewl m of
-	EmptyL	->  digitToTree sf
-	a :< m'	->  deep (nodeToDigit a) m' sf
+deepL Nothing m sf	=   rotL m sf
 deepL (Just pr) m sf	=   deep pr m sf
 
 deepR          ::  (Measured v a) =>
 	Digit a -> FingerTree v (Node v a) -> Maybe (Digit a) -> FingerTree v a
-deepR pr m Nothing	=   case viewr m of
-	EmptyR	->  digitToTree pr
-	m' :> a	->  deep pr m' (nodeToDigit a)
+deepR pr m Nothing	=   rotR pr m
 deepR pr m (Just sf)	=   deep pr m sf
 
 splitNode :: (Measured v a) => (v -> Bool) -> v -> Node v a ->

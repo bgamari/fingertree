@@ -8,8 +8,9 @@ Category:       Data Structures
 Synopsis:       Generic finger-tree structure, with example instances
 Description:
                 A general sequence representation with arbitrary
-                annotations, with example implementations of various
-                collection types, as described in section 4 of
+                annotations, for use as a base for implementations of
+                various collection types, with examples, as described
+                in section 4 of
                 .
                  * Ralf Hinze and Ross Paterson,
                    \"Finger trees: a simple general-purpose data structure\",

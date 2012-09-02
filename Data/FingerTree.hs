@@ -17,7 +17,7 @@
 --      /Journal of Functional Programming/ 16:2 (2006) pp 197-217.
 --      <http://www.soi.city.ac.uk/~ross/papers/FingerTree.html>
 --
--- For a directly usable sequence type, see "Data.Sequence", which is
+-- For a directly usable sequence type, see @Data.Sequence@, which is
 -- a specialization of this structure.
 --
 -- An amortized running time is given for each operation, with /n/
@@ -45,6 +45,8 @@ module Data.FingerTree (
 	reverse,
 	fmap', fmapWithPos, unsafeFmap,
 	traverse', traverseWithPos, unsafeTraverse
+	-- * Example
+	-- $example
 	) where
 
 import Prelude hiding (null, reverse)
@@ -134,8 +136,17 @@ nodeToDigit :: Node v a -> Digit a
 nodeToDigit (Node2 _ a b) = Two a b
 nodeToDigit (Node3 _ a b c) = Three a b c
 
--- | Finger trees with element type @a@, annotated with measures of type @v@.
--- The operations enforce the constraint @'Measured' v a@.
+-- | A representation of a sequence of values of type @a@, allowing
+-- access to the ends in constant time, and append and split in time
+-- logarithmic in the size of the smaller piece.
+--
+-- The collection is also parameterized by a measure type @v@, which
+-- is used to specify a position in the sequence for the 'split' operation.
+-- The types of the operations enforce the constraint @'Measured' v a@,
+-- which also implies that the type @v@ is determined by @a@.
+--
+-- A variety of abstract data types can be implemented by using different
+-- element types and measurements.
 data FingerTree v a
 	= Empty
 	| Single a
@@ -656,6 +667,9 @@ addDigits4 m1 (Four a b c d) e f g h (Four i j k l) m2 =
 
 -- | /O(log(min(i,n-i)))/. Split a sequence at a point where the predicate
 -- on the accumulated measure changes from 'False' to 'True'.
+--
+-- For predictable results, one should ensure that there is only one such
+-- point, i.e. that the predicate is /monotonic/.
 split ::  (Measured v a) => 
           (v -> Bool) -> FingerTree v a -> (FingerTree v a, FingerTree v a)
 split _p Empty  =  (Empty, Empty)
@@ -664,9 +678,19 @@ split p xs
   | otherwise	=  (xs, Empty)
   where Split l x r = splitTree p mempty xs
 
+-- | /O(log(min(i,n-i)))/.
+-- Given a monotonic predicate @p@, @'takeUntil' p t@ is the largest
+-- prefix of @t@ whose measure does not satisfy @p@.
+--
+-- *  @'takeUntil' p t = 'fst' ('split' p t)@
 takeUntil :: (Measured v a) => (v -> Bool) -> FingerTree v a -> FingerTree v a
 takeUntil p  =  fst . split p
 
+-- | /O(log(min(i,n-i)))/.
+-- Given a monotonic predicate @p@, @'dropUntil' p t@ is the rest of @t@
+-- after removing the largest prefix whose measure does not satisfy @p@.
+--
+-- * @'dropUntil' p t = 'snd' ('split' p t)@
 dropUntil :: (Measured v a) => (v -> Bool) -> FingerTree v a -> FingerTree v a
 dropUntil p  =  snd . split p
 
@@ -759,3 +783,34 @@ reverseDigit f (One a) = One (f a)
 reverseDigit f (Two a b) = Two (f b) (f a)
 reverseDigit f (Three a b c) = Three (f c) (f b) (f a)
 reverseDigit f (Four a b c d) = Four (f d) (f c) (f b) (f a)
+
+{- $example
+
+Particular abstract data types may be implemented by defining
+element types with suitable 'Measured' instances.
+
+(from section 4.5 of the paper)
+Simple sequences can be implemented using a 'Sum' monoid as a measure:
+
+> newtype Elem a = Elem { getElem :: a }
+>
+> instance Measured (Sum Int) (Elem a) where
+>     measure (Elem _) = Sum 1
+>
+> newtype Seq a = Seq (FingerTree (Sum Int) (Elem a))
+
+Then the measure of a subsequence is simply its length.
+This representation supports log-time extraction of subsequences:
+
+> take :: Int -> Seq a -> Seq a
+> take k (Seq xs) = Seq (takeUntil (> Sum k) xs)
+>
+> drop :: Int -> Seq a -> Seq a
+> drop k (Seq xs) = Seq (dropUntil (> Sum k) xs)
+
+The module @Data.Sequence@ is an optimized instantiation of this type.
+
+For further examples, see "Data.IntervalMap.FingerTree" and
+"Data.PriorityQueue.FingerTree".
+
+-}

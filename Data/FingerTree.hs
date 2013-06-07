@@ -167,13 +167,13 @@ instance Foldable (FingerTree v) where
 	foldMap f (Deep _ pr m sf) =
 		foldMap f pr `mappend` foldMap (foldMap f) m `mappend` foldMap f sf
 
-instance (Measured v a, Eq a) => Eq (FingerTree v a) where
+instance Eq a => Eq (FingerTree v a) where
 	xs == ys = toList xs == toList ys
 
-instance (Measured v a, Ord a) => Ord (FingerTree v a) where
+instance Ord a => Ord (FingerTree v a) where
 	compare xs ys = compare (toList xs) (toList ys)
 
-instance (Measured v a, Show a) => Show (FingerTree v a) where
+instance Show a => Show (FingerTree v a) where
 	showsPrec p xs = showParen (p > 10) $
 		showString "fromList " . shows (toList xs)
 

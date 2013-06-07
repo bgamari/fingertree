@@ -81,6 +81,7 @@ instance Functor s => Functor (ViewR s) where
 	fmap f EmptyR           = EmptyR
 	fmap f (xs :> x)        = fmap f xs :> f x
 
+-- | 'empty' and '><'.
 instance Measured v a => Monoid (FingerTree v a) where
 	mempty = empty
 	mappend = (><)
@@ -156,6 +157,7 @@ deep ::  (Measured v a) =>
 	 Digit a -> FingerTree v (Node v a) -> Digit a -> FingerTree v a
 deep pr m sf = Deep ((measure pr `mappendVal` m) `mappend` measure sf) pr m sf
 
+-- | /O(1)/. The cached measure of a tree.
 instance (Measured v a) => Measured v (FingerTree v a) where
 	measure Empty           =  mempty
 	measure (Single x)      =  measure x

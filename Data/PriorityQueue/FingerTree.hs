@@ -136,7 +136,7 @@ fromList = foldr (uncurry insert) empty
 null :: Ord k => PQueue k v -> Bool
 null (PQueue q) = FT.null q
 
--- | /O(1)/ (/O(log(n))/ for the reduced queue).
+-- | /O(1)/ for the element, /O(log(n))/ for the reduced queue.
 -- Returns 'Nothing' for an empty map, or the value associated with the
 -- minimal priority together with the rest of the priority queue.
 --
@@ -147,7 +147,7 @@ null (PQueue q) = FT.null q
 minView :: Ord k => PQueue k v -> Maybe (v, PQueue k v)
 minView q = fmap (snd *** id) (minViewWithKey q)
 
--- | /O(1)/ (/O(log(n))/ for the reduced queue).
+-- | /O(1)/ for the element, /O(log(n))/ for the reduced queue.
 -- Returns 'Nothing' for an empty map, or the minimal (priority, value)
 -- pair together with the rest of the priority queue.
 --

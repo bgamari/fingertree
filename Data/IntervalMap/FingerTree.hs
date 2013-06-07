@@ -97,6 +97,11 @@ instance Traversable (IntervalMap v) where
 	traverse f (IntervalMap t) =
 		IntervalMap <$> FT.unsafeTraverse (traverse f) t
 
+-- | 'empty' and 'union'.
+instance (Ord v) => Monoid (IntervalMap v a) where
+	mempty = empty
+	mappend = union
+
 -- | /O(1)/.  The empty interval map.
 empty :: (Ord v) => IntervalMap v a
 empty = IntervalMap FT.empty

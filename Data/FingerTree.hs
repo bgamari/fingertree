@@ -54,7 +54,6 @@ import Prelude hiding (null, reverse)
 import Control.Applicative (Applicative(pure, (<*>)), (<$>))
 import Data.Monoid
 import Data.Foldable (Foldable(foldMap), toList)
-import Data.Traversable (Traversable(traverse))
 
 infixr 5 ><
 infixr 5 <|, :<
@@ -74,11 +73,11 @@ data ViewR s a
 	deriving (Eq, Ord, Show, Read)
 
 instance Functor s => Functor (ViewL s) where
-	fmap f EmptyL           = EmptyL
+	fmap _ EmptyL           = EmptyL
 	fmap f (x :< xs)        = f x :< fmap f xs
 
 instance Functor s => Functor (ViewR s) where
-	fmap f EmptyR           = EmptyR
+	fmap _ EmptyR           = EmptyR
 	fmap f (xs :> x)        = fmap f xs :> f x
 
 -- | 'empty' and '><'.
@@ -352,6 +351,7 @@ consDigit :: a -> Digit a -> Digit a
 consDigit a (One b) = Two a b
 consDigit a (Two b c) = Three a b c
 consDigit a (Three b c d) = Four a b c d
+consDigit _ (Four _ _ _ _) = illegal_argument "consDigit"
 
 -- | /O(1)/. Add an element to the right end of a sequence.
 -- Mnemonic: a triangle with the single element at the pointy end.
@@ -367,6 +367,7 @@ snocDigit :: Digit a -> a -> Digit a
 snocDigit (One a) b = Two a b
 snocDigit (Two a b) c = Three a b c
 snocDigit (Three a b c) d = Four a b c d
+snocDigit (Four _ _ _ _) _ = illegal_argument "snocDigit"
 
 -- | /O(1)/. Is this the empty sequence?
 null :: (Measured v a) => FingerTree v a -> Bool
@@ -392,6 +393,7 @@ lheadDigit (Three a _ _) = a
 lheadDigit (Four a _ _ _) = a
 
 ltailDigit :: Digit a -> Digit a
+ltailDigit (One _) = illegal_argument "ltailDigit"
 ltailDigit (Two _ b) = One b
 ltailDigit (Three _ b c) = Two b c
 ltailDigit (Four _ b c d) = Three b c d
@@ -415,6 +417,7 @@ rheadDigit (Three _ _ c) = c
 rheadDigit (Four _ _ _ d) = d
 
 rtailDigit :: Digit a -> Digit a
+rtailDigit (One _) = illegal_argument "rtailDigit"
 rtailDigit (Two a _) = One a
 rtailDigit (Three a b _) = Two a b
 rtailDigit (Four a b c _) = Three a b c
@@ -674,7 +677,7 @@ addDigits4 m1 (Four a b c d) e f g h (Four i j k l) m2 =
 -- point, i.e. that the predicate is /monotonic/.
 split ::  (Measured v a) => 
           (v -> Bool) -> FingerTree v a -> (FingerTree v a, FingerTree v a)
-split _p Empty  =  (Empty, Empty)
+split _ Empty  =  (Empty, Empty)
 split p xs
   | p (measure xs) =  (l, x <| r)
   | otherwise	=  (xs, Empty)
@@ -700,7 +703,8 @@ data Split t a = Split t a t
 
 splitTree ::	(Measured v a) => 
 		(v -> Bool) -> v -> FingerTree v a -> Split (FingerTree v a) a
-splitTree _p _i (Single x) = Split Empty x Empty
+splitTree _ _ Empty = illegal_argument "splitTree"
+splitTree _ _ (Single x) = Split Empty x Empty
 splitTree p i (Deep _ pr m sf)
   | p vpr	=  let	Split l x r	=  splitDigit p i pr
 		   in	Split (maybe Empty digitToTree l) x (deepL r m sf)
@@ -742,7 +746,7 @@ splitNode p i (Node3 _ a b c)
 
 splitDigit :: (Measured v a) => (v -> Bool) -> v -> Digit a ->
 		Split (Maybe (Digit a)) a
-splitDigit p i (One a) = i `seq` Split Nothing a Nothing
+splitDigit _ i (One a) = i `seq` Split Nothing a Nothing
 splitDigit p i (Two a b)
   | p va	= Split Nothing a (Just (One b))
   | otherwise	= Split (Just (One a)) b Nothing
@@ -785,6 +789,10 @@ reverseDigit f (One a) = One (f a)
 reverseDigit f (Two a b) = Two (f b) (f a)
 reverseDigit f (Three a b c) = Three (f c) (f b) (f a)
 reverseDigit f (Four a b c d) = Four (f d) (f c) (f b) (f a)
+
+illegal_argument :: String -> a
+illegal_argument name =
+	error $ "Logic error: " ++ name ++ " called with illegal argument"
 
 {- $example
 

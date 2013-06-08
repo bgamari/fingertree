@@ -37,3 +37,15 @@ Library
                 Data.FingerTree
                 Data.IntervalMap.FingerTree
                 Data.PriorityQueue.FingerTree
+
+Test-suite ft-properties
+  type: exitcode-stdio-1.0
+  main-is: tests/ft-properties.hs
+  cpp-options: -DTESTING
+  build-depends:
+                base >= 4.2 && < 6,
+                HUnit,
+                QuickCheck,
+                test-framework,
+                test-framework-hunit,
+                test-framework-quickcheck2

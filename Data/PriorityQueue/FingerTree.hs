@@ -11,10 +11,10 @@
 -- Min-priority queues implemented using the 'FingerTree' type,
 -- following section 4.6 of
 --
---    * Ralf Hinze and Ross Paterson,
---      \"Finger trees: a simple general-purpose data structure\",
---      /Journal of Functional Programming/ 16:2 (2006) pp 197-217.
---      <http://www.soi.city.ac.uk/~ross/papers/FingerTree.html>
+--  * Ralf Hinze and Ross Paterson,
+--    \"Finger trees: a simple general-purpose data structure\",
+--    /Journal of Functional Programming/ 16:2 (2006) pp 197-217.
+--    <http://www.soi.city.ac.uk/~ross/papers/FingerTree.html>
 --
 -- These have the same big-O complexity as skew heap implementations,
 -- but are approximately an order of magnitude slower.
@@ -33,23 +33,22 @@
 -----------------------------------------------------------------------------
 
 module Data.PriorityQueue.FingerTree (
-	PQueue,
-	-- * Construction
-	empty,
-	singleton,
-	union,
-	insert,
-	add,
-	fromList,
-	-- * Deconstruction
-	null,
-	minView,
-	minViewWithKey
-	) where
+    PQueue,
+    -- * Construction
+    empty,
+    singleton,
+    union,
+    insert,
+    add,
+    fromList,
+    -- * Deconstruction
+    null,
+    minView,
+    minViewWithKey
+    ) where
 
 import qualified Data.FingerTree as FT
-import Data.FingerTree (FingerTree, (<|), (|>), (><),
-			ViewL(..), Measured(measure))
+import Data.FingerTree (FingerTree, (<|), (|>), (><), ViewL(..), Measured(..))
 
 import Control.Arrow ((***))
 import Data.Foldable (Foldable(foldMap))
@@ -60,38 +59,38 @@ import Prelude hiding (null)
 data Entry k v = Entry { key :: k, value :: v }
 
 instance Functor (Entry k) where
-	fmap f (Entry k v) = Entry k (f v)
+    fmap f (Entry k v) = Entry k (f v)
 
 instance Foldable (Entry k) where
-	foldMap f (Entry _ v) = f v
+    foldMap f (Entry _ v) = f v
 
 data Prio k v = NoPrio | Prio k v
 
 instance Ord k => Monoid (Prio k v) where
-	mempty			= NoPrio
-	x `mappend` NoPrio	= x
-	NoPrio `mappend` y	= y
-	x@(Prio kx _) `mappend` y@(Prio ky _)
-	  | kx <= ky		= x
-	  | otherwise		= y
+    mempty                  = NoPrio
+    x `mappend` NoPrio      = x
+    NoPrio `mappend` y      = y
+    x@(Prio kx _) `mappend` y@(Prio ky _)
+      | kx <= ky            = x
+      | otherwise           = y
 
 instance Ord k => Measured (Prio k v) (Entry k v) where
-	measure (Entry k v) = Prio k v
+    measure (Entry k v) = Prio k v
 
 -- | Priority queues.
 newtype PQueue k v = PQueue (FingerTree (Prio k v) (Entry k v))
 
 instance Ord k => Functor (PQueue k) where
-	fmap f (PQueue xs) = PQueue (FT.fmap' (fmap f) xs)
+    fmap f (PQueue xs) = PQueue (FT.fmap' (fmap f) xs)
 
 instance Ord k => Foldable (PQueue k) where
-	foldMap f q = case minView q of
-		Nothing -> mempty
-		Just (v, q') -> f v `mappend` foldMap f q'
+    foldMap f q = case minView q of
+        Nothing -> mempty
+        Just (v, q') -> f v `mappend` foldMap f q'
 
 instance Ord k => Monoid (PQueue k v) where
-	mempty = empty
-	mappend = union
+    mempty = empty
+    mappend = union
 
 -- | /O(1)/. The empty priority queue.
 empty :: Ord k => PQueue k v
@@ -165,10 +164,11 @@ minViewWithKey :: Ord k => PQueue k v -> Maybe ((k, v), PQueue k v)
 minViewWithKey (PQueue q)
   | FT.null q = Nothing
   | otherwise = Just ((k, v), case FT.viewl r of
-	_ :< r' -> PQueue (l >< r')
-	_ -> error "can't happen")
-  where Prio k v = measure q
-	(l, r) = FT.split (below k) q
+    _ :< r' -> PQueue (l >< r')
+    _ -> error "can't happen")
+  where
+    Prio k v = measure q
+    (l, r) = FT.split (below k) q
 
 below :: Ord k => k -> Prio k v -> Bool
 below _ NoPrio = False

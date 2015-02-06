@@ -53,10 +53,9 @@ import Data.FingerTree (FingerTree, (<|), (|>), (><), ViewL(..), Measured(..))
 import Control.Arrow ((***))
 import Data.Foldable (Foldable(foldMap))
 import Data.Monoid
-import Data.List (unfoldr)
 import Prelude hiding (null)
 
-data Entry k v = Entry { key :: k, value :: v }
+data Entry k v = Entry k v
 
 instance Functor (Entry k) where
     fmap f (Entry k v) = Entry k (f v)

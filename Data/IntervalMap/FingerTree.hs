@@ -114,11 +114,12 @@ singleton i x = IntervalMap (FT.singleton (Node i x))
 -- The map may contain duplicate intervals; the new entry will be inserted
 -- before any existing entries for the same interval.
 insert :: (Ord v) => Interval v -> a -> IntervalMap v a -> IntervalMap v a
-insert (Interval lo hi) x m | lo > hi = m
+insert (Interval lo hi) _ m | lo > hi = m
 insert i x (IntervalMap t) = IntervalMap (l >< Node i x <| r)
   where
     (l, r) = FT.split larger t
     larger (IntInterval k _) = k >= i
+    larger NoInterval = error "larger NoInterval"
 
 -- | /O(m log (n/\//m))/.  Merge two interval maps.
 -- The map may contain duplicate intervals; entries with equal intervals
@@ -132,12 +133,14 @@ union (IntervalMap xs) (IntervalMap ys) = IntervalMap (merge1 xs ys)
           where
             (l, r) = FT.split larger bs
             larger (IntInterval k _) = k >= i
+            larger NoInterval = error "larger NoInterval"
     merge2 as bs = case FT.viewl bs of
         EmptyL                  -> as
         b@(Node i _) :< bs'     -> l >< b <| merge1 r bs'
           where
             (l, r) = FT.split larger as
             larger (IntInterval k _) = k > i
+            larger NoInterval = error "larger NoInterval"
 
 -- | /O(k log (n/\//k))/.  All intervals that intersect with the given
 -- interval, in lexicographical order.
@@ -165,9 +168,14 @@ inRange lo hi (IntervalMap t) = matches (FT.takeUntil (greater hi) t)
 
 atleast :: (Ord v) => v -> IntInterval v -> Bool
 atleast k (IntInterval _ hi) = k <= hi
+atleast _ NoInterval = error "atleast NoInterval"
 
 greater :: (Ord v) => v -> IntInterval v -> Bool
 greater k (IntInterval i _) = low i > k
+greater _ NoInterval = error "greater NoInterval"
+
+{-
+-- Examples
 
 mkMap :: (Ord v) => [(v, v, a)] -> IntervalMap v a
 mkMap = foldr ins empty
@@ -196,3 +204,4 @@ mathematicians = mkMap [
     (1736, 1813, "Lagrange"),
     (1777, 1855, "Gauss"),
     (1811, 1831, "Galois")]
+-}

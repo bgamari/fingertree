@@ -4,7 +4,7 @@
 -- Module      :  Data.PriorityQueue.FingerTree
 -- Copyright   :  (c) Ross Paterson 2008
 -- License     :  BSD-style
--- Maintainer  :  ross@soi.city.ac.uk
+-- Maintainer  :  R.Paterson@city.ac.uk
 -- Stability   :  experimental
 -- Portability :  non-portable (MPTCs and functional dependencies)
 --

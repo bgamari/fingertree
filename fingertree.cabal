@@ -25,7 +25,7 @@ Build-Type:     Simple
 
 Source-Repository head
   Type: darcs
-  Location: http://code.haskell.org/~ross/fingertree
+  Location: http://hub.darcs.net/ross/fingertree
 
 Library
   Build-Depends: base < 6

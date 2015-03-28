@@ -18,7 +18,7 @@ import qualified Prelude
 
 import Control.Applicative (Applicative(..))
 import Control.Monad (ap)
-import Data.Foldable (Foldable(..), toList, all)
+import Data.Foldable (Foldable(foldMap, foldl, foldr), toList, all)
 import Data.Functor ((<$>))
 import Data.Traversable (traverse)
 import Data.List (inits)
@@ -78,8 +78,8 @@ toList' xs
   | otherwise = Nothing
 
 toListPair' ::
-	(Eq a, Measured [a] a, Valid a, Eq b, Measured [b] b, Valid b) =>
-	(Seq a, Seq b) -> Maybe ([a], [b])
+    (Eq a, Measured [a] a, Valid a, Eq b, Measured [b] b, Valid b) =>
+        (Seq a, Seq b) -> Maybe ([a], [b])
 toListPair' (xs, ys) = (,) <$> toList' xs <*> toList' ys
 
 -- instances
@@ -183,23 +183,26 @@ prop_fmap' xs =
 prop_fmapWithPos :: Seq A -> Bool
 prop_fmapWithPos xs =
     toList' (fmapWithPos f xs) ~= zipWith f (inits xs_list) xs_list
-  where f = (,)
-	xs_list = toList xs
+  where
+    f = (,)
+    xs_list = toList xs
 
 prop_traverse' :: Seq A -> Bool
 prop_traverse' xs =
     toList' (evalM (traverse' f xs)) ~= evalM (traverse f (toList xs))
-  where f x = do
-		n <- step
-		return (n, x)
+  where
+    f x = do
+        n <- step
+        return (n, x)
 
 prop_traverseWithPos :: Seq A -> Bool
 prop_traverseWithPos xs =
     toList' (evalM (traverseWithPos f xs)) ~= evalM (traverse (uncurry f) (zip (inits xs_list) xs_list))
-  where f xs y = do
-		n <- step
-		return (xs, n, y)
-	xs_list = toList xs
+  where
+    f xs y = do
+        n <- step
+        return (xs, n, y)
+    xs_list = toList xs
 
 {- untested:
 traverseWithPos
@@ -210,81 +213,81 @@ traverseWithPos
 ------------------------------------------------------------------------
 
 instance (Arbitrary a, Measured v a) => Arbitrary (FingerTree v a) where
-	arbitrary = sized arb
-	  where
-		arb :: (Arbitrary a, Measured v a) => Int -> Gen (FingerTree v a)
-		arb 0 = return Empty
-		arb 1 = Single <$> arbitrary
-		arb n = deep <$> arbitrary <*> arb (n `div` 2) <*> arbitrary
+    arbitrary = sized arb
+      where
+        arb :: (Arbitrary a, Measured v a) => Int -> Gen (FingerTree v a)
+        arb 0 = return Empty
+        arb 1 = Single <$> arbitrary
+        arb n = deep <$> arbitrary <*> arb (n `div` 2) <*> arbitrary
 
-	shrink (Deep _ (One a) Empty (One b)) = [Single a, Single b]
-	shrink (Deep _ pr m sf) =
-		[deep pr' m sf | pr' <- shrink pr] ++
-		[deep pr m' sf | m' <- shrink m] ++
-		[deep pr m sf' | sf' <- shrink sf]
-	shrink (Single x) = map Single (shrink x)
-	shrink Empty = []
+    shrink (Deep _ (One a) Empty (One b)) = [Single a, Single b]
+    shrink (Deep _ pr m sf) =
+        [deep pr' m sf | pr' <- shrink pr] ++
+        [deep pr m' sf | m' <- shrink m] ++
+        [deep pr m sf' | sf' <- shrink sf]
+    shrink (Single x) = map Single (shrink x)
+    shrink Empty = []
 
 instance (Arbitrary a, Measured v a) => Arbitrary (Node v a) where
-	arbitrary = oneof [
-		node2 <$> arbitrary <*> arbitrary,
-		node3 <$> arbitrary <*> arbitrary <*> arbitrary]
+    arbitrary = oneof [
+        node2 <$> arbitrary <*> arbitrary,
+        node3 <$> arbitrary <*> arbitrary <*> arbitrary]
 
-	shrink (Node2 _ a b) =
-		[node2 a' b | a' <- shrink a] ++
-		[node2 a b' | b' <- shrink b]
-	shrink (Node3 _ a b c) =
-		[node2 a b, node2 a c, node2 b c] ++
-		[node3 a' b c | a' <- shrink a] ++
-		[node3 a b' c | b' <- shrink b] ++
-		[node3 a b c' | c' <- shrink c]
+    shrink (Node2 _ a b) =
+        [node2 a' b | a' <- shrink a] ++
+        [node2 a b' | b' <- shrink b]
+    shrink (Node3 _ a b c) =
+        [node2 a b, node2 a c, node2 b c] ++
+        [node3 a' b c | a' <- shrink a] ++
+        [node3 a b' c | b' <- shrink b] ++
+        [node3 a b c' | c' <- shrink c]
 
 instance Arbitrary a => Arbitrary (Digit a) where
-	arbitrary = oneof [
-		One <$> arbitrary,
-		Two <$> arbitrary <*> arbitrary,
-		Three <$> arbitrary <*> arbitrary <*> arbitrary,
-		Four <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary]
+    arbitrary = oneof [
+        One <$> arbitrary,
+        Two <$> arbitrary <*> arbitrary,
+        Three <$> arbitrary <*> arbitrary <*> arbitrary,
+        Four <$> arbitrary <*> arbitrary <*> arbitrary <*> arbitrary]
 
-	shrink (One a) = map One (shrink a)
-	shrink (Two a b) = [One a, One b]
-	shrink (Three a b c) = [Two a b, Two a c, Two b c]
-	shrink (Four a b c d) = [Three a b c, Three a b d, Three a c d, Three b c d]
+    shrink (One a) = map One (shrink a)
+    shrink (Two a b) = [One a, One b]
+    shrink (Three a b c) = [Two a b, Two a c, Two b c]
+    shrink (Four a b c d) = [Three a b c, Three a b d, Three a c d, Three b c d]
 
 ------------------------------------------------------------------------
 -- Valid trees
 ------------------------------------------------------------------------
 
 class Valid a where
-	valid :: a -> Bool
+    valid :: a -> Bool
 
 instance (Measured v a, Eq v, Valid a) => Valid (FingerTree v a) where
-	valid Empty = True
-	valid (Single x) = valid x
-	valid (Deep s pr m sf) =
-		s == measure pr `mappend` measure m `mappend` measure sf &&
-		valid pr && valid m && valid sf
+    valid Empty = True
+    valid (Single x) = valid x
+    valid (Deep s pr m sf) =
+        s == measure pr `mappend` measure m `mappend` measure sf &&
+        valid pr && valid m && valid sf
 
 instance (Measured v a, Eq v, Valid a) => Valid (Node v a) where
-	valid node = measure node == foldMap measure node && all valid node
+    valid node = measure node == foldMap measure node && all valid node
 
 instance Valid a => Valid (Digit a) where
-	valid = all valid
+    valid = all valid
 
 instance Valid A where
-	valid = const True
+    valid = const True
 
 instance Valid (a,b) where
-	valid = const True
+    valid = const True
 
 instance Valid (a,b,c) where
-	valid = const True
+    valid = const True
 
 instance Valid (Maybe a) where
-	valid = const True
+    valid = const True
 
 instance Valid [a] where
-	valid = const True
+    valid = const True
 
 ------------------------------------------------------------------------
 -- Use list of elements as the measure
@@ -320,15 +323,15 @@ evalM :: M a -> a
 evalM m = snd (runM m 0)
 
 instance Monad M where
-	return x = M $ \ n -> (n, x)
-	M u >>= f = M $ \ m -> let (n, x) = u m in runM (f x) n
+    return x = M $ \ n -> (n, x)
+    M u >>= f = M $ \ m -> let (n, x) = u m in runM (f x) n
 
 instance Functor M where
-	fmap f (M u) = M $ \ m -> let (n, x) = u m in (n, f x)
+    fmap f (M u) = M $ \ m -> let (n, x) = u m in (n, f x)
 
 instance Applicative M where
-	pure = return
-	(<*>) = ap
+    pure = return
+    (<*>) = ap
 
 step :: M Int
 step = M $ \ n -> (n+1, n)

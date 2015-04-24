@@ -5,6 +5,7 @@ Copyright:      (c) 2006 Ross Paterson, Ralf Hinze
 License:        BSD3
 License-File:   LICENSE
 Maintainer:     Ross Paterson <R.Paterson@city.ac.uk>
+bug-reports:    http://hub.darcs.net/ross/fingertree/issues
 Category:       Data Structures
 Synopsis:       Generic finger-tree structure, with example instances
 Description:

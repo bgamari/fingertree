@@ -1,4 +1,11 @@
-{-# LANGUAGE CPP, MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE MultiParamTypeClasses, FunctionalDependencies, FlexibleInstances, UndecidableInstances #-}
+#if __GLASGOW_HASKELL__ >= 702
+{-# LANGUAGE Safe #-}
+#endif
+#if __GLASGOW_HASKELL__ >= 710
+{-# LANGUAGE AutoDeriveTypeable #-}
+#endif
 -----------------------------------------------------------------------------
 -- |
 -- Module      :  Data.FingerTree

@@ -1,0 +1,24 @@
+-*-change-log-*-
+
+0.1.1.0 Ross Paterson <R.Paterson@city.ac.uk> Jun 2015
+	* Added Safe for GHC >= 7.2
+	* Added AutoDeriveTypeable for GHC >= 7.10
+
+0.1.0.2 Ross Paterson <ross@soi.city.ac.uk> Mar 2015
+	* Cabal file updates
+
+0.1.0.1 Ross Paterson <ross@soi.city.ac.uk> Feb 2015
+	* fix warnings
+
+0.1.0.0 Ross Paterson <ross@soi.city.ac.uk> Jun 2013
+	* Added Monoid instance for IntervalMap
+	* Removed unnecessary Measured v a constraints on Eq, Ord, and Show instances
+
+0.0.1.1 Ross Paterson <ross@soi.city.ac.uk> Sep 2012
+	* Cabal file updates
+
+0.0.1.0 Ross Paterson <ross@soi.city.ac.uk> Jul 2009
+	* Added Data.IntervalMap.FingerTree and Data.PriorityQueue.FingerTree
+
+0.0 Ross Paterson <ross@soi.city.ac.uk> May 2007
+	* Initial revision

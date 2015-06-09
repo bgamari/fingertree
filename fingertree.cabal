@@ -23,6 +23,8 @@ Description:
                 @containers@ package, which is a specialization of
                 this structure.
 Build-Type:     Simple
+Extra-Source-Files:
+                changelog
 
 Source-Repository head
   Type: darcs

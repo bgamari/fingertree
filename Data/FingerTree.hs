@@ -168,7 +168,8 @@ data FingerTree v a
 
 deep ::  (Measured v a) =>
      Digit a -> FingerTree v (Node v a) -> Digit a -> FingerTree v a
-deep pr m sf = Deep ((measure pr `mappendVal` m) `mappend` measure sf) pr m sf
+deep pr m sf =
+    Deep ((measure pr `mappend` measure m) `mappend` measure sf) pr m sf
 
 -- | /O(1)/. The cached measure of a tree.
 instance (Measured v a) => Measured v (FingerTree v a) where
@@ -233,7 +234,7 @@ mapWPTree f v (Deep _ pr m sf) =
          (mapWPDigit f vm sf)
   where
     vpr     =  v    `mappend`  measure pr
-    vm      =  vpr  `mappendVal` m
+    vm      =  vpr  `mappend`  measure m
 
 mapWPNode :: (Measured v1 a1, Measured v2 a2) =>
     (v1 -> a1 -> a2) -> v1 -> Node v1 a1 -> Node v2 a2
@@ -308,7 +309,7 @@ traverseWPTree f v (Deep _ pr m sf) =
     deep <$> traverseWPDigit f v pr <*> traverseWPTree (traverseWPNode f) vpr m <*> traverseWPDigit f vm sf
   where
     vpr     =  v    `mappend`  measure pr
-    vm      =  vpr  `mappendVal` m
+    vm      =  vpr  `mappend`  measure m
 
 traverseWPNode :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
     (v1 -> a1 -> f a2) -> v1 -> Node v1 a1 -> f (Node v2 a2)
@@ -436,7 +437,7 @@ viewr (Deep _ pr m sf)          =  deep pr m (rtailDigit sf) :> rheadDigit sf
 rotR :: (Measured v a) => Digit a -> FingerTree v (Node v a) -> FingerTree v a
 rotR pr m = case viewr m of
     EmptyR  ->  digitToTree pr
-    m' :> a ->  Deep (measure pr `mappendVal` m) pr m' (nodeToDigit a)
+    m' :> a ->  Deep (measure pr `mappend` measure m) pr m' (nodeToDigit a)
 
 rheadDigit :: Digit a -> a
 rheadDigit (One a) = a
@@ -738,18 +739,13 @@ splitTree p i (Deep _ pr m sf)
   | p vpr       =  let  Split l x r     =  splitDigit p i pr
                    in   Split (maybe Empty digitToTree l) x (deepL r m sf)
   | p vm        =  let  Split ml xs mr  =  splitTree p vpr m
-                        Split l x r     =  splitNode p (vpr `mappendVal` ml) xs
+                        Split l x r     =  splitNode p vm xs
                    in   Split (deepR pr  ml l) x (deepL r mr sf)
   | otherwise   =  let  Split l x r     =  splitDigit p vm sf
                    in   Split (deepR pr  m  l) x (maybe Empty digitToTree r)
   where
     vpr     =  i    `mappend`  measure pr
-    vm      =  vpr  `mappendVal` m
-
--- Avoid relying on right identity (cf Exercise 7)
-mappendVal :: (Measured v a) => v -> FingerTree v a -> v
-mappendVal v Empty = v
-mappendVal v t = v `mappend` measure t
+    vm      =  vpr  `mappend`  measure m
 
 deepL :: (Measured v a) =>
     Maybe (Digit a) -> FingerTree v (Node v a) -> Digit a -> FingerTree v a

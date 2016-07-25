@@ -35,7 +35,7 @@
 
 module Data.IntervalMap.FingerTree (
     -- * Intervals
-    Interval(..), point,
+    Interval(..), low, high, point,
     -- * Interval maps
     IntervalMap, empty, singleton, insert, union,
     -- * Searching
@@ -47,7 +47,7 @@ import Data.FingerTree (FingerTree, Measured(..), ViewL(..), (<|), (><))
 
 import Control.Applicative ((<$>))
 import Data.Traversable (Traversable(traverse))
-import Data.Foldable (Foldable(foldMap))
+import Data.Foldable (Foldable(foldMap), toList)
 import Data.Monoid
 
 ----------------------------------
@@ -55,15 +55,24 @@ import Data.Monoid
 ----------------------------------
 
 -- | A closed interval.  The lower bound should be less than or equal
--- to the higher bound.
-data Interval v = Interval { low :: v, high :: v }
+-- to the upper bound.
+data Interval v = Interval v v
     deriving (Eq, Ord, Show)
+
+-- | Lower bound of the interval
+low :: Interval v -> v
+low (Interval lo _) = lo
+
+-- | Upper bound of the interval
+high :: Interval v -> v
+high (Interval _ hi) = hi
 
 -- | An interval in which the lower and upper bounds are equal.
 point :: v -> Interval v
 point v = Interval v v
 
 data Node v a = Node (Interval v) a
+    deriving (Eq, Ord, Show)
 
 instance Functor (Node v) where
     fmap f (Node i x) = Node i (f x)
@@ -103,6 +112,24 @@ instance Foldable (IntervalMap v) where
 instance Traversable (IntervalMap v) where
     traverse f (IntervalMap t) =
         IntervalMap <$> FT.unsafeTraverse (traverse f) t
+
+instance (Eq v, Eq a) => Eq (IntervalMap v a) where
+    IntervalMap xs == IntervalMap ys = toList xs == toList ys
+
+-- | Lexicographical ordering
+instance (Ord v, Ord a) => Ord (IntervalMap v a) where
+    compare (IntervalMap xs) (IntervalMap ys) = compare (toList xs) (toList ys)
+
+instance (Show v, Show a) => Show (IntervalMap v a) where
+    showsPrec p (IntervalMap ns)
+      | null ns = showString "empty"
+      | otherwise =
+        showParen (p > 0) (showIntervals (toList ns))
+      where
+        showIntervals [] = showString "empty"
+        showIntervals (Node i x:ixs) =
+            showString "insert " . shows i . showChar ' ' . shows x .
+                showString " $ " . showIntervals ixs
 
 -- | 'empty' and 'union'.
 instance (Ord v) => Monoid (IntervalMap v a) where

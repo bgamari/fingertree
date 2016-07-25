@@ -59,6 +59,7 @@ import Data.FingerTree (FingerTree, (<|), (|>), (><), ViewL(..), Measured(..))
 
 import Control.Arrow ((***))
 import Data.Foldable (Foldable(foldMap))
+import Data.List (unfoldr)
 import Data.Monoid
 import Prelude hiding (null)
 
@@ -89,14 +90,28 @@ newtype PQueue k v = PQueue (FingerTree (Prio k v) (Entry k v))
 instance Ord k => Functor (PQueue k) where
     fmap f (PQueue xs) = PQueue (FT.fmap' (fmap f) xs)
 
+-- | In ascending order of keys.
 instance Ord k => Foldable (PQueue k) where
     foldMap f q = case minView q of
         Nothing -> mempty
         Just (v, q') -> f v `mappend` foldMap f q'
 
+-- | 'empty' and 'union'
 instance Ord k => Monoid (PQueue k v) where
     mempty = empty
     mappend = union
+
+instance (Ord k, Eq v) => Eq (PQueue k v) where
+    xs == ys = assocs xs == assocs ys
+
+-- | Lexicographical ordering
+instance (Ord k, Ord v) => Ord (PQueue k v) where
+    compare xs ys = compare (assocs xs) (assocs ys)
+
+-- | In ascending key order
+instance (Ord k, Show k, Show v) => Show (PQueue k v) where
+    showsPrec p xs = showParen (p > 10) $
+        showString "fromList " . shows (assocs xs)
 
 -- | /O(1)/. The empty priority queue.
 empty :: Ord k => PQueue k v
@@ -179,3 +194,7 @@ minViewWithKey (PQueue q)
 below :: Ord k => k -> Prio k v -> Bool
 below _ NoPrio = False
 below k (Prio k' _) = k' <= k
+
+-- | /O(n)/. Key-value pairs in ascending key order.
+assocs :: Ord k => PQueue k v -> [(k, v)]
+assocs = unfoldr minViewWithKey

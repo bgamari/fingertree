@@ -61,10 +61,14 @@ module Data.FingerTree (
     ) where
 
 import Prelude hiding (null, reverse)
-
+#if MIN_VERSION_base(4,8,0)
+import qualified Prelude (null)
+#else
 import Control.Applicative (Applicative(pure, (<*>)), (<$>))
 import Data.Monoid
-import Data.Foldable (Foldable(foldMap), toList)
+import Data.Foldable (Foldable(foldMap))
+#endif
+import Data.Foldable (toList)
 
 infixr 5 ><
 infixr 5 <|, :<
@@ -182,6 +186,11 @@ instance Foldable (FingerTree v) where
     foldMap f (Single x) = f x
     foldMap f (Deep _ pr m sf) =
         foldMap f pr `mappend` foldMap (foldMap f) m `mappend` foldMap f sf
+
+#if MIN_VERSION_base(4,8,0)
+    null Empty = True
+    null _ = False
+#endif
 
 instance Eq a => Eq (FingerTree v a) where
     xs == ys = toList xs == toList ys
@@ -363,6 +372,7 @@ singleton :: Measured v a => a -> FingerTree v a
 singleton = Single
 
 -- | /O(n)/. Create a sequence from a finite list of elements.
+-- The opposite operation 'toList' is supplied by the 'Foldable' instance.
 fromList :: (Measured v a) => [a] -> FingerTree v a
 fromList = foldr (<|) Empty
 

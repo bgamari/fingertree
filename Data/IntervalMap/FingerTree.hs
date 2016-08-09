@@ -45,10 +45,16 @@ module Data.IntervalMap.FingerTree (
 import qualified Data.FingerTree as FT
 import Data.FingerTree (FingerTree, Measured(..), ViewL(..), (<|), (><))
 
+import Prelude hiding (null)
+#if MIN_VERSION_base(4,8,0)
+import qualified Prelude (null)
+#else
 import Control.Applicative ((<$>))
-import Data.Traversable (Traversable(traverse))
-import Data.Foldable (Foldable(foldMap), toList)
+import Data.Foldable (Foldable(foldMap))
 import Data.Monoid
+import Data.Traversable (Traversable(traverse))
+#endif
+import Data.Foldable (toList)
 
 ----------------------------------
 -- 4.8 Application: interval trees
@@ -108,6 +114,9 @@ instance Functor (IntervalMap v) where
 
 instance Foldable (IntervalMap v) where
     foldMap f (IntervalMap t) = foldMap (foldMap f) t
+#if MIN_VERSION_base(4,8,0)
+    null (IntervalMap t) = Prelude.null t
+#endif
 
 instance Traversable (IntervalMap v) where
     traverse f (IntervalMap t) =
@@ -122,7 +131,7 @@ instance (Ord v, Ord a) => Ord (IntervalMap v a) where
 
 instance (Show v, Show a) => Show (IntervalMap v a) where
     showsPrec p (IntervalMap ns)
-      | null ns = showString "empty"
+      | Prelude.null ns = showString "empty"
       | otherwise =
         showParen (p > 0) (showIntervals (toList ns))
       where

@@ -57,11 +57,15 @@ module Data.PriorityQueue.FingerTree (
 import qualified Data.FingerTree as FT
 import Data.FingerTree (FingerTree, (<|), (|>), (><), ViewL(..), Measured(..))
 
-import Control.Arrow ((***))
-import Data.Foldable (Foldable(foldMap))
-import Data.List (unfoldr)
-import Data.Monoid
 import Prelude hiding (null)
+#if MIN_VERSION_base(4,8,0)
+import qualified Prelude (null)
+#else
+import Data.Foldable (Foldable(foldMap))
+import Data.Monoid
+#endif
+import Control.Arrow ((***))
+import Data.List (unfoldr)
 
 data Entry k v = Entry k v
 
@@ -95,6 +99,9 @@ instance Ord k => Foldable (PQueue k) where
     foldMap f q = case minView q of
         Nothing -> mempty
         Just (v, q') -> f v `mappend` foldMap f q'
+#if MIN_VERSION_base(4,8,0)
+    null (PQueue q) = Prelude.null q
+#endif
 
 -- | 'empty' and 'union'
 instance Ord k => Monoid (PQueue k v) where
@@ -183,7 +190,7 @@ minView q = fmap (snd *** id) (minViewWithKey q)
 --
 minViewWithKey :: Ord k => PQueue k v -> Maybe ((k, v), PQueue k v)
 minViewWithKey (PQueue q)
-  | FT.null q = Nothing
+  | Prelude.null q = Nothing
   | otherwise = Just ((k, v), case FT.viewl r of
     _ :< r' -> PQueue (l >< r')
     _ -> error "can't happen")

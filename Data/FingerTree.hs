@@ -204,7 +204,7 @@ instance Show a => Show (FingerTree v a) where
         showString "fromList " . shows (toList xs)
 #endif
 
--- | Like 'fmap', but with a more constrained type.
+-- | Like 'fmap', but with constraints on the element types.
 fmap' :: (Measured v1 a1, Measured v2 a2) =>
     (a1 -> a2) -> FingerTree v1 a1 -> FingerTree v2 a2
 fmap' = mapTree
@@ -281,7 +281,7 @@ unsafeFmapNode :: (a -> b) -> Node v a -> Node v b
 unsafeFmapNode f (Node2 v a b) = Node2 v (f a) (f b)
 unsafeFmapNode f (Node3 v a b c) = Node3 v (f a) (f b) (f c)
 
--- | Like 'traverse', but with a more constrained type.
+-- | Like 'traverse', but with constraints on the element types.
 traverse' :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
     (a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
 traverse' = traverseTree
@@ -304,8 +304,8 @@ traverseDigit f (Two a b) = Two <$> f a <*> f b
 traverseDigit f (Three a b c) = Three <$> f a <*> f b <*> f c
 traverseDigit f (Four a b c d) = Four <$> f a <*> f b <*> f c <*> f d
 
--- | Traverse the tree with a function that also takes the
--- measure of the prefix of the tree to the left of the element.
+-- | Traverse the tree from left to right with a function that also
+-- takes the measure of the prefix of the tree to the left of the element.
 traverseWithPos :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
     (v1 -> a1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
 traverseWithPos f = traverseWPTree f mempty
@@ -710,7 +710,7 @@ addDigits4 m1 (Four a b c d) e f g h (Four i j k l) m2 =
 ----------------
 
 -- | /O(log(min(i,n-i)))/. Split a sequence at a point where the predicate
--- on the accumulated measure changes from 'False' to 'True'.
+-- on the accumulated measure of the prefix changes from 'False' to 'True'.
 --
 -- For predictable results, one should ensure that there is only one such
 -- point, i.e. that the predicate is /monotonic/.

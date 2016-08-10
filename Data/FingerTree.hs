@@ -181,6 +181,7 @@ instance (Measured v a) => Measured v (FingerTree v a) where
     measure (Single x)      =  measure x
     measure (Deep v _ _ _)  =  v
 
+-- | Elements from left to right.
 instance Foldable (FingerTree v) where
     foldMap _ Empty = mempty
     foldMap f (Single x) = f x
@@ -195,6 +196,7 @@ instance Foldable (FingerTree v) where
 instance Eq a => Eq (FingerTree v a) where
     xs == ys = toList xs == toList ys
 
+-- | Lexicographical order from left to right.
 instance Ord a => Ord (FingerTree v a) where
     compare xs ys = compare (toList xs) (toList ys)
 

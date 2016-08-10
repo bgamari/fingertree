@@ -62,7 +62,7 @@ import Data.Foldable (toList)
 
 -- | A closed interval.  The lower bound should be less than or equal
 -- to the upper bound.
-data Interval v = Interval v v
+data Interval v = Interval v v -- ^ Lower and upper bounds of the interval.
     deriving (Eq, Ord, Show)
 
 -- | Lower bound of the interval
@@ -103,8 +103,6 @@ instance (Ord v) => Measured (IntInterval v) (Node v a) where
     measure (Node i _) = IntInterval i (high i)
 
 -- | Map of closed intervals, possibly with duplicates.
--- The 'Foldable' and 'Traversable' instances process the intervals in
--- lexicographical order.
 newtype IntervalMap v a =
     IntervalMap (FingerTree (IntInterval v) (Node v a))
 -- ordered lexicographically by interval
@@ -112,12 +110,14 @@ newtype IntervalMap v a =
 instance Functor (IntervalMap v) where
     fmap f (IntervalMap t) = IntervalMap (FT.unsafeFmap (fmap f) t)
 
+-- | Values in lexicographical order of intervals.
 instance Foldable (IntervalMap v) where
     foldMap f (IntervalMap t) = foldMap (foldMap f) t
 #if MIN_VERSION_base(4,8,0)
     null (IntervalMap t) = Prelude.null t
 #endif
 
+-- | Traverse the intervals in lexicographical order.
 instance Traversable (IntervalMap v) where
     traverse f (IntervalMap t) =
         IntervalMap <$> FT.unsafeTraverse (traverse f) t

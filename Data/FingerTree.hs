@@ -54,8 +54,10 @@ module Data.FingerTree (
     split, takeUntil, dropUntil,
     -- * Transformation
     reverse,
-    fmap', fmapWithPos, unsafeFmap,
-    traverse', traverseWithPos, unsafeTraverse
+    -- ** Maps
+    fmap', fmapWithPos, fmapWithContext, unsafeFmap,
+    -- ** Traversals
+    traverse', traverseWithPos, traverseWithContext, unsafeTraverse,
     -- * Example
     -- $example
     ) where
@@ -272,6 +274,64 @@ mapWPDigit f v (Four a b c d) = Four (f v a) (f va b) (f vab c) (f vabc d)
     vab     = va `mappend` measure b
     vabc    = vab `mappend` measure c
 
+-- | Map all elements of the tree with a function that also takes the
+-- measure of the prefix to the left and of the suffix to the right of
+-- the element.
+fmapWithContext :: (Measured v1 a1, Measured v2 a2) =>
+    (v1 -> a1 -> v1 -> a2) -> FingerTree v1 a1 -> FingerTree v2 a2
+fmapWithContext f t = mapWCTree f mempty t mempty
+
+mapWCTree :: (Measured v1 a1, Measured v2 a2) =>
+    (v1 -> a1 -> v1 -> a2) -> v1 -> FingerTree v1 a1 -> v1 -> FingerTree v2 a2
+mapWCTree _ _ Empty _ = Empty
+mapWCTree f vl (Single x) vr = Single (f vl x vr)
+mapWCTree f vl (Deep _ pr m sf) vr =
+    deep (mapWCDigit f vl pr vmsr)
+         (mapWCTree (mapWCNode f) vlp m vsr)
+         (mapWCDigit f vlpm sf vr)
+  where
+    vlp     =  vl `mappend` measure pr
+    vlpm    =  vlp `mappend` vm
+    vmsr    =  vm `mappend` vsr
+    vsr     =  measure sf `mappend` vr
+    vm      =  measure m
+
+mapWCNode :: (Measured v1 a1, Measured v2 a2) =>
+    (v1 -> a1 -> v1 -> a2) -> v1 -> Node v1 a1 -> v1 -> Node v2 a2
+mapWCNode f vl (Node2 _ a b) vr = node2 (f vl a vb) (f va b vr)
+  where
+    va      = vl `mappend` measure a
+    vb      = measure b `mappend` vr
+mapWCNode f vl (Node3 _ a b c) vr = node3 (f vl a vbc) (f va b vc) (f vab c vr)
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vbc     = measure b `mappend` vc
+    vc      = measure c `mappend` vr
+
+mapWCDigit ::
+    (Measured v a) => (v -> a -> v -> b) -> v -> Digit a -> v -> Digit b
+mapWCDigit f vl (One a) vr = One (f vl a vr)
+mapWCDigit f vl (Two a b) vr = Two (f vl a vb) (f va b vr)
+  where
+    va      = vl `mappend` measure a
+    vb      = measure b `mappend` vr
+mapWCDigit f vl (Three a b c) vr = Three (f vl a vbc) (f va b vc) (f vab c vr)
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vbc     = measure b `mappend` vc
+    vc      = measure c `mappend` vr
+mapWCDigit f vl (Four a b c d) vr =
+    Four (f vl a vbcd) (f va b vcd) (f vab c vd) (f vabc d vr)
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vabc    = vab `mappend` measure c
+    vbcd    = measure b `mappend` vcd
+    vcd     = measure c `mappend` vd
+    vd      = measure d `mappend` vr
+
 -- | Like 'fmap', but safe only if the function preserves the measure.
 unsafeFmap :: (a -> b) -> FingerTree v a -> FingerTree v b
 unsafeFmap _ Empty = Empty
@@ -347,6 +407,64 @@ traverseWPDigit f v (Four a b c d) = Four <$> f v a <*> f va b <*> f vab c <*> f
     va      = v `mappend` measure a
     vab     = va `mappend` measure b
     vabc    = vab `mappend` measure c
+
+-- | Traverse the tree from left to right with a function that also
+-- takes the measure of the prefix to the left and the measure of the
+-- suffix to the right of the element.
+traverseWithContext :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
+    (v1 -> a1 -> v1 -> f a2) -> FingerTree v1 a1 -> f (FingerTree v2 a2)
+traverseWithContext f t = traverseWCTree f mempty t mempty
+
+traverseWCTree :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
+    (v1 -> a1 -> v1 -> f a2) -> v1 -> FingerTree v1 a1 -> v1 -> f (FingerTree v2 a2)
+traverseWCTree _ _ Empty _ = pure Empty
+traverseWCTree f vl (Single x) vr = Single <$> f vl x vr
+traverseWCTree f vl (Deep _ pr m sf) vr =
+    deep <$> traverseWCDigit f vl pr vmsr <*> traverseWCTree (traverseWCNode f) vlp m vsr <*> traverseWCDigit f vlpm sf vr
+  where
+    vlp     =  vl `mappend` measure pr
+    vlpm    =  vlp `mappend` vm
+    vmsr    =  vm `mappend` vsr
+    vsr     =  measure sf `mappend` vr
+    vm      =  measure m
+
+traverseWCNode :: (Measured v1 a1, Measured v2 a2, Applicative f) =>
+    (v1 -> a1 -> v1 -> f a2) -> v1 -> Node v1 a1 -> v1 -> f (Node v2 a2)
+traverseWCNode f vl (Node2 _ a b) vr = node2 <$> f vl a vb <*> f va b vr
+  where
+    va      = vl `mappend` measure a
+    vb      = measure a `mappend` vr
+traverseWCNode f vl (Node3 _ a b c) vr =
+    node3 <$> f vl a vbc <*> f va b vc <*> f vab c vr
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vc      = measure c `mappend` vr
+    vbc     = measure b `mappend` vc
+
+traverseWCDigit :: (Measured v a, Applicative f) =>
+    (v -> a -> v -> f b) -> v -> Digit a -> v -> f (Digit b)
+traverseWCDigit f vl (One a) vr = One <$> f vl a vr
+traverseWCDigit f vl (Two a b) vr = Two <$> f vl a vb <*> f va b vr
+  where
+    va      = vl `mappend` measure a
+    vb      = measure a `mappend` vr
+traverseWCDigit f vl (Three a b c) vr =
+    Three <$> f vl a vbc <*> f va b vc <*> f vab c vr
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vc      = measure c `mappend` vr
+    vbc     = measure b `mappend` vc
+traverseWCDigit f vl (Four a b c d) vr =
+    Four <$> f vl a vbcd <*> f va b vcd <*> f vab c vd <*> f vabc d vr
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vabc    = vab `mappend` measure c
+    vd      = measure d `mappend` vr
+    vcd     = measure c `mappend` vd
+    vbcd    = measure b `mappend` vcd
 
 -- | Like 'traverse', but safe only if the function preserves the measure.
 unsafeTraverse :: (Applicative f) =>

@@ -751,7 +751,7 @@ splitTree p i (Deep _ pr m sf)
   | p vpr       =  let  Split l x r     =  splitDigit p i pr
                    in   Split (maybe Empty digitToTree l) x (deepL r m sf)
   | p vm        =  let  Split ml xs mr  =  splitTree p vpr m
-                        Split l x r     =  splitNode p vm xs
+                        Split l x r     =  splitNode p (vpr `mappend` measure ml) xs
                    in   Split (deepR pr  ml l) x (deepL r mr sf)
   | otherwise   =  let  Split l x r     =  splitDigit p vm sf
                    in   Split (deepR pr  m  l) x (maybe Empty digitToTree r)

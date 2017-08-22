@@ -529,7 +529,7 @@ snocDigit (Three a b c) d = Four a b c d
 snocDigit (Four _ _ _ _) _ = illegal_argument "snocDigit"
 
 -- | /O(1)/. Is this the empty sequence?
-null :: (Measured v a) => FingerTree v a -> Bool
+null :: FingerTree v a -> Bool
 null Empty = True
 null _ = False
 

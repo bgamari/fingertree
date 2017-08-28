@@ -50,7 +50,13 @@ module Data.FingerTree (
     fromList,
     -- * Deconstruction
     null,
-    ViewL(..), ViewR(..), viewl, viewr,
+    -- ** Examining the ends
+    ViewL(..), viewl,
+    ViewR(..), viewr,
+    -- ** Search
+    SearchResult(..), search,
+    -- ** Splitting
+    -- | These functions are special cases of 'search'.
     split, takeUntil, dropUntil,
     -- * Transformation
     reverse,
@@ -828,6 +834,138 @@ addDigits4 m1 (Four a b c d) e f g h (Four i j k l) m2 =
 ----------------
 -- 4.4 Splitting
 ----------------
+
+-- | A result of 'search', attempting to find a point where a predicate
+-- on splits of the sequence changes from 'False' to 'True'.
+data SearchResult v a
+    = Position (FingerTree v a) a (FingerTree v a)
+        -- ^ A tree opened at a particular element: the prefix to the
+        -- left, the element, and the suffix to the right.
+    | OnLeft
+        -- ^ Position to the left of the sequence, indicating that the
+        -- predicate is 'True' at both ends.
+    | OnRight
+        -- ^ Position to the right of the sequence, indicating that the
+        -- predicate is 'False' at both ends.
+    | Nowhere
+        -- ^ No position in the tree, returned if the predicate is 'True'
+        -- at the left end and 'False' at the right end.  This will not
+        -- occur if the predicate in monotonic on the tree.
+    deriving (Eq, Ord, Show)
+
+-- | /O(log(min(i,n-i)))/. Search a sequence for a point where a predicate
+-- on splits of the sequence changes from 'False' to 'True'.
+--
+-- The argument @p@ is a relation between the measures of the two
+-- sequences that could be appended together to form the sequence @t@.
+-- If the relation is 'False' at the leftmost split and 'True' at the
+-- rightmost split, i.e.
+--
+-- * @not (p 'mempty' ('measure' t)) && p ('measure' t) 'mempty'@
+--
+-- then there must exist an element @x@ in the sequence such that @p@
+-- is 'False' for the split immediately before @x@ and 'True' for the
+-- split just after it.  In this situation, @'search' p t@ returns such an
+-- element @x@ and the pieces @l@ and @r@ of the sequence to its left and
+-- right respectively.  That is, it returns @'Position' l x r@ such that
+--
+-- * @l >< (x <| r) = t@
+--
+-- * @not (p (measure l) (measure (x <| r))@
+--
+-- * @p (measure (l |> x)) (measure r)@
+--
+-- For predictable results, one should ensure that there is only one such
+-- point, i.e. that the predicate is /monotonic/ on @t@.
+search :: (Measured v a) =>
+    (v -> v -> Bool) -> FingerTree v a -> SearchResult v a
+search p t
+  | p_left && p_right = OnLeft
+  | not p_left && p_right = case searchTree p mempty t mempty of
+        Split l x r -> Position l x r
+  | not p_left && not p_right = OnRight
+  | otherwise = Nowhere
+  where
+    p_left = p mempty vt
+    p_right = p vt mempty
+    vt = measure t
+
+-- isSplit :: (Measured v a) => (v -> v -> Bool) -> v -> a -> v -> Bool
+-- isSplit p vl x vr = not (p vl (v `mappend` vr)) && p (vl `mappend` v) vr
+--   where v = measure x
+--
+-- property:
+-- isSplit p vl t vr =>
+--    let Split l x r = search t in
+--    isSplit p (vl `mappend` measure l) x (measure r `mappend` vr)
+
+searchTree :: (Measured v a) =>
+    (v -> v -> Bool) -> v -> FingerTree v a -> v -> Split (FingerTree v a) a
+searchTree _ _ Empty _ = illegal_argument "searchTree"
+searchTree _ _ (Single x) _ = Split Empty x Empty
+searchTree p vl (Deep _ pr m sf) vr
+  | p vlp vmsr  =  let  Split l x r     =  searchDigit p vl pr vmsr
+                   in   Split (maybe Empty digitToTree l) x (deepL r m sf)
+  | p vlpm vsr  =  let  Split ml xs mr  =  searchTree p vlp m vsr
+                        Split l x r     =  searchNode p (vlp `mappend` measure ml) xs (measure mr `mappend` vsr)
+                   in   Split (deepR pr  ml l) x (deepL r mr sf)
+  | otherwise   =  let  Split l x r     =  searchDigit p vm sf vr
+                   in   Split (deepR pr  m  l) x (maybe Empty digitToTree r)
+  where
+    vlp     =  vl `mappend` measure pr
+    vlpm    =  vlp `mappend` vm
+    vmsr    =  vm `mappend` vsr
+    vsr     =  measure sf `mappend` vr
+    vm      =  measure m
+
+searchNode :: (Measured v a) =>
+    (v -> v -> Bool) -> v -> Node v a -> v -> Split (Maybe (Digit a)) a
+searchNode p vl (Node2 _ a b) vr
+  | p va vb     = Split Nothing a (Just (One b))
+  | otherwise   = Split (Just (One a)) b Nothing
+  where
+    va      = vl `mappend` measure a
+    vb      = measure b `mappend` vr
+searchNode p vl (Node3 _ a b c) vr
+  | p va vbc    = Split Nothing a (Just (Two b c))
+  | p vab vc    = Split (Just (One a)) b (Just (One c))
+  | otherwise   = Split (Just (Two a b)) c Nothing
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vc      = measure c `mappend` vr
+    vbc     = measure b `mappend` vc
+
+searchDigit :: (Measured v a) =>
+    (v -> v -> Bool) -> v -> Digit a -> v -> Split (Maybe (Digit a)) a
+searchDigit _ vl (One a) vr = vl `seq` vr `seq` Split Nothing a Nothing
+searchDigit p vl (Two a b) vr
+  | p va vb     = Split Nothing a (Just (One b))
+  | otherwise   = Split (Just (One a)) b Nothing
+  where
+    va      = vl `mappend` measure a
+    vb      = measure b `mappend` vr
+searchDigit p vl (Three a b c) vr
+  | p va vbc    = Split Nothing a (Just (Two b c))
+  | p vab vc    = Split (Just (One a)) b (Just (One c))
+  | otherwise   = Split (Just (Two a b)) c Nothing
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vbc     = measure b `mappend` vc
+    vc      = measure c `mappend` vr
+searchDigit p vl (Four a b c d) vr
+  | p va vbcd   = Split Nothing a (Just (Three b c d))
+  | p vab vcd   = Split (Just (One a)) b (Just (Two c d))
+  | p vabc vd   = Split (Just (Two a b)) c (Just (One d))
+  | otherwise   = Split (Just (Three a b c)) d Nothing
+  where
+    va      = vl `mappend` measure a
+    vab     = va `mappend` measure b
+    vabc    = vab `mappend` measure c
+    vbcd    = measure b `mappend` vcd
+    vcd     = measure c `mappend` vd
+    vd      = measure d `mappend` vr
 
 -- | /O(log(min(i,n-i)))/. Split a sequence at a point where the predicate
 -- on the accumulated measure of the prefix changes from 'False' to 'True'.

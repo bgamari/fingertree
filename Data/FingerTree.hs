@@ -89,16 +89,16 @@ data ViewR s a
                     -- and the rightmost element
     deriving (Eq, Ord, Show, Read)
 
-instance Functor s => Functor (ViewL s) where
+instance (Functor s) => Functor (ViewL s) where
     fmap _ EmptyL    = EmptyL
     fmap f (x :< xs) = f x :< fmap f xs
 
-instance Functor s => Functor (ViewR s) where
+instance (Functor s) => Functor (ViewR s) where
     fmap _ EmptyR    = EmptyR
     fmap f (xs :> x) = fmap f xs :> f x
 
 -- | 'empty' and '><'.
-instance Measured v a => Monoid (FingerTree v a) where
+instance (Measured v a) => Monoid (FingerTree v a) where
     mempty = empty
     mappend = (><)
 
@@ -195,15 +195,15 @@ instance Foldable (FingerTree v) where
     null _ = False
 #endif
 
-instance Eq a => Eq (FingerTree v a) where
+instance (Eq a) => Eq (FingerTree v a) where
     xs == ys = toList xs == toList ys
 
 -- | Lexicographical order from left to right.
-instance Ord a => Ord (FingerTree v a) where
+instance (Ord a) => Ord (FingerTree v a) where
     compare xs ys = compare (toList xs) (toList ys)
 
 #if !TESTING
-instance Show a => Show (FingerTree v a) where
+instance (Show a) => Show (FingerTree v a) where
     showsPrec p xs = showParen (p > 10) $
         showString "fromList " . shows (toList xs)
 #endif
@@ -887,8 +887,8 @@ deepR :: (Measured v a) =>
 deepR pr m Nothing      =   rotR pr m
 deepR pr m (Just sf)    =   deep pr m sf
 
-splitNode :: (Measured v a) => (v -> Bool) -> v -> Node v a ->
-    Split (Maybe (Digit a)) a
+splitNode :: (Measured v a) =>
+    (v -> Bool) -> v -> Node v a -> Split (Maybe (Digit a)) a
 splitNode p i (Node2 _ a b)
   | p va        = Split Nothing a (Just (One b))
   | otherwise   = Split (Just (One a)) b Nothing
@@ -902,8 +902,8 @@ splitNode p i (Node3 _ a b c)
     va      = i `mappend` measure a
     vab     = va `mappend` measure b
 
-splitDigit :: (Measured v a) => (v -> Bool) -> v -> Digit a ->
-    Split (Maybe (Digit a)) a
+splitDigit :: (Measured v a) =>
+    (v -> Bool) -> v -> Digit a -> Split (Maybe (Digit a)) a
 splitDigit _ i (One a) = i `seq` Split Nothing a Nothing
 splitDigit p i (Two a b)
   | p va        = Split Nothing a (Just (One b))

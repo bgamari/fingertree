@@ -64,6 +64,9 @@ import qualified Prelude (null)
 import Data.Foldable (Foldable(foldMap))
 import Data.Monoid
 #endif
+#if MIN_VERSION_base(4,9,0)
+import Data.Semigroup
+#endif
 import Control.Arrow ((***))
 import Data.List (unfoldr)
 
@@ -77,13 +80,23 @@ instance Foldable (Entry k) where
 
 data Prio k v = NoPrio | Prio k v
 
+#if MIN_VERSION_base(4,9,0)
+instance Ord k => Semigroup (Prio k v) where
+    (<>) = unionPrio
+#endif
+
 instance Ord k => Monoid (Prio k v) where
-    mempty                  = NoPrio
-    x `mappend` NoPrio      = x
-    NoPrio `mappend` y      = y
-    x@(Prio kx _) `mappend` y@(Prio ky _)
-      | kx <= ky            = x
-      | otherwise           = y
+    mempty  = NoPrio
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = unionPrio
+#endif
+
+unionPrio :: Ord k => Prio k v -> Prio k v -> Prio k v
+x `unionPrio` NoPrio      = x
+NoPrio `unionPrio` y      = y
+x@(Prio kx _) `unionPrio` y@(Prio ky _)
+  | kx <= ky            = x
+  | otherwise           = y
 
 instance Ord k => Measured (Prio k v) (Entry k v) where
     measure (Entry k v) = Prio k v
@@ -103,10 +116,17 @@ instance Ord k => Foldable (PQueue k) where
     null (PQueue q) = Prelude.null q
 #endif
 
+#if MIN_VERSION_base(4,9,0)
+instance Ord k => Semigroup (PQueue k v) where
+    (<>) = union
+#endif
+
 -- | 'empty' and 'union'
 instance Ord k => Monoid (PQueue k v) where
     mempty = empty
+#if !(MIN_VERSION_base(4,11,0))
     mappend = union
+#endif
 
 instance (Ord k, Eq v) => Eq (PQueue k v) where
     xs == ys = assocs xs == assocs ys

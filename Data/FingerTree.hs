@@ -76,6 +76,9 @@ import Control.Applicative (Applicative(pure, (<*>)), (<$>))
 import Data.Monoid
 import Data.Foldable (Foldable(foldMap))
 #endif
+#if MIN_VERSION_base(4,9,0)
+import Data.Semigroup
+#endif
 import Data.Foldable (toList)
 
 infixr 5 ><
@@ -103,10 +106,17 @@ instance (Functor s) => Functor (ViewR s) where
     fmap _ EmptyR    = EmptyR
     fmap f (xs :> x) = fmap f xs :> f x
 
+#if MIN_VERSION_base(4,9,0)
+instance (Measured v a) => Semigroup (FingerTree v a) where
+    (<>) = (><)
+#endif
+
 -- | 'empty' and '><'.
 instance (Measured v a) => Monoid (FingerTree v a) where
     mempty = empty
+#if !(MIN_VERSION_base(4,11,0))
     mappend = (><)
+#endif
 
 -- Explicit Digit type (Exercise 1)
 

@@ -54,6 +54,9 @@ import Data.Foldable (Foldable(foldMap))
 import Data.Monoid
 import Data.Traversable (Traversable(traverse))
 #endif
+#if MIN_VERSION_base(4,9,0)
+import Data.Semigroup
+#endif
 import Data.Foldable (toList)
 
 ----------------------------------
@@ -92,12 +95,23 @@ instance Traversable (Node v) where
 -- rightmost interval (including largest lower bound) and largest upper bound.
 data IntInterval v = NoInterval | IntInterval (Interval v) v
 
+#if MIN_VERSION_base(4,9,0)
+instance Ord v => Semigroup (IntInterval v) where
+    (<>) = intervalUnion
+#endif
+
 instance Ord v => Monoid (IntInterval v) where
     mempty = NoInterval
-    NoInterval `mappend` i  = i
-    i `mappend` NoInterval  = i
-    IntInterval _ hi1 `mappend` IntInterval int2 hi2 =
-        IntInterval int2 (max hi1 hi2)
+#if !(MIN_VERSION_base(4,11,0))
+    mappend = intervalUnion
+#endif
+
+intervalUnion :: Ord v => IntInterval v -> IntInterval v -> IntInterval v
+NoInterval `intervalUnion` i  = i
+i `intervalUnion` NoInterval  = i
+IntInterval _ hi1 `intervalUnion` IntInterval int2 hi2 =
+    IntInterval int2 (max hi1 hi2)
+
 
 instance (Ord v) => Measured (IntInterval v) (Node v a) where
     measure (Node i _) = IntInterval i (high i)
@@ -140,10 +154,18 @@ instance (Show v, Show a) => Show (IntervalMap v a) where
             showString "insert " . shows i . showChar ' ' . shows x .
                 showString " $ " . showIntervals ixs
 
+#if MIN_VERSION_base(4,9,0)
+-- | 'union'.
+instance (Ord v) => Semigroup (IntervalMap v a) where
+    (<>) = union
+#endif
+
 -- | 'empty' and 'union'.
 instance (Ord v) => Monoid (IntervalMap v a) where
     mempty = empty
+#if !(MIN_VERSION_base(4,11,0))
     mappend = union
+#endif
 
 -- | /O(1)/.  The empty interval map.
 empty :: (Ord v) => IntervalMap v a
